@@ -1,0 +1,1397 @@
+# Единственный основной YAML проекта: Step1–6, Step6b, Step7 и Spontaneous Hemodynamics.
+# step6b_fc_geometry: строго согласованный итоговый блок (REVIEW-комментарии сохранены).
+# functional_connectivity и step_spontaneous_hemodynamics читают rest_variant независимо.
+# Для согласованных сравнений выставляйте ОДИНАКОВЫЕ rest_variant в обоих блоках.
+# ВНИМАНИЕ: настройки path_resolving сохранены из прежнего config.yaml (F: -> H:).
+
+project:
+  name: PT2021_corrected_recalc_2026-10-15
+  directory_to_save_main_analysis: F:\PT2021_final_analysis\Main_analysis_2026-10-15
+  analysis_parent_dir: F:\PT2021_final_analysis
+  analysis_folder_name: Main_analysis_2026-10-15
+  create_new_analysis_folder: true
+  config_snapshot_name: config_snapshot_initial.yaml
+  out_folder_name: out
+excluded_stems: ['m12_Before-PT_Awake_Rest-state']  # Specify exact stems from manifest_recordings.csv; one stem per item.
+# Example:
+# excluded_stems:
+#   - mXX_3d-PT_Awake_Rest-state  # example only; replace with the real stem
+
+discovery:
+  mode: recursive_folders
+  raw_root: F:\Photothrombosis-str
+  suffixes:
+  - .bmp
+  min_files: 100
+  max_depth: null
+  show_progress: true
+  metadata_filters:
+    state: 
+    - Awake
+    - Iso
+metadata:
+  mode: regex
+  regex_target: path
+  regex: (?P<exp_day>[^\\/]+)[\\/](?P<mouse_id>[^\\/]+)[\\/](?P<state>[^\\/]+)[\\/](?P<protocol>[^\\/]+)$
+  stem_keys:
+  - mouse_id
+  - exp_day
+  - state
+  - protocol
+  normalize_underscores: true
+  underscore_replacement: '-'
+  fallback_to_folder_structure: true
+raw:
+  suffixes:
+  - .bmp
+  file_regex: (?:image|15min)_(?P<index>\d+)_(?P<date>\d{6})-(?P<time>\d{6})\.bmp$
+  sort_key: index
+  wave_pattern:
+    '505':
+    - 0
+    - 2
+    '656':
+    - 1
+    - 2
+  reference_wave: '505'
+  ref_image_idx_per_wavelength:
+    '505': 0
+    '656': 0
+  resample_mode: repeat
+  fps: 16.666666666666668
+  scale: 0.3
+  rotation: -90.0
+  read_end: MAX
+  use_parallel: true
+  max_workers: 4
+  chunks:
+  - 256
+  - 1
+  - -1
+  - -1
+  read_dtype: uint8
+  mean_pair_dtype: null
+  store_dtype: uint8
+  compressor_name: zstd
+  compressor_level: 3
+  overwrite: false
+  zarr_key: raw_record
+raw_motion_correction:
+  enabled: false
+  estimate_wavelength: '505'
+  output_suffix: motion_corrected
+  store_dtype: uint8
+  reference_mode: first_frame
+  reference_frame_index: 0
+  reference_n_frames: 20
+  preprocess: normalize
+  highpass_sigma: 0.0
+  ignore_border_px: 0
+  upsample_factor: 10
+  normalization: phase
+  max_shift_px: 8
+  fail_policy: use_previous
+  interpolation_order: 1
+  shift_mode: nearest
+  save_transforms_csv: true
+step1:
+  folder_name: step1_project
+  manifest_name: manifest_recordings.csv
+  reference_selection:
+    enabled: true
+    output_folder_name: ilastik_reference_images
+    filename_template: '{stem}.bmp'
+    probability_filename_template: '{stem}_Probabilities.h5'
+    overwrite: true
+    add_paths_to_manifest: true
+step2:
+  folder_name: step2_masks
+  use_manifest: true
+  masks_folder: masks
+  metadata_registration_name: metadata_registration.csv
+  h5:
+    dataset: exported_data
+  morphology:
+    close_r_brain: 3
+    ring_radius: 15
+    bad_dilate_common: 1
+  registration:
+    angle_range_deg: 15.0
+    angle_step_deg: 0.1
+    upsample: 10
+    mask_mode: group_union
+    image_wavelength: '505'
+    method: vessel_sobel
+    roi_mode: full_image
+    ignore_border_px: 10
+    anchor_bregma: true
+    strict_bregma_anchor: true
+    bregma_anchor_tol_px: 0.001
+    vessel_sobel:
+      percentile_low: 1
+      percentile_high: 99
+      background_sigma: 12
+      feature_sigma: 0.0
+      polarity: both
+  qc:
+    min_score: 0.1
+    min_mask_area: 500
+    max_abs_dx: 100
+    max_abs_dy: 100
+    max_abs_angle_deg: 15
+  io:
+    save_intermediate_masks: true
+    save_registered_bmps: true
+    save_qc_overlays: true
+  debug:
+    filters: null
+  mask_sources:
+    brain:
+      wavelength: '656'
+      class_index: 0
+      threshold: 0.6
+      required: true
+    bregma:
+      wavelength: '656'
+      class_index: 3
+      threshold: 0.6
+      required: true
+    glare:
+      required: false
+      add_to_bad_mask: true
+      sources:
+      - wavelength: '656'
+        class_index: 2
+        threshold: 0.5
+        dilate: 2
+    dust:
+      wavelength: '505'
+      class_index: 2
+      threshold: 0.8
+      required: false
+      add_to_bad_mask: true
+      dilate: 1
+    vessels:
+      enabled: true
+      wavelength: '505'
+      class_index: 1
+      threshold: 0.7
+      required: false
+      add_to_bad_mask: false
+      dilate: 2
+  preview:
+    enabled: true
+    groups: null
+    max_groups: 2
+    max_stems_per_group: 6
+    folder_name: mask_previews
+    save_png: true
+    show_inline: true
+step3:
+  folder_name: step3
+  frame_qc_name: frame_qc.csv
+  reference_annotations_name: reference_annotations.csv
+  manual_masks_folder: manual_brain_masks
+  run_summary_name: run_summary.csv
+  annotator: user
+  review:
+    include_bad: true
+    auto_bregma_size: 5
+    manual_bregma_size: 5
+  debug:
+    filters: null
+  reference_image:
+    source: registration
+    wavelength: null
+    column: null
+  manual_mask_updates:
+    enabled: true
+    bregma_diameter_px: 25
+  annotation:
+    require_bregma: true
+    require_lambda: false
+    require_frontal_vessel_cross: true
+    require_axis: true
+    only_unannotated: false
+  registration_qc:
+    ask_after_group: true
+    csv_name: registration_qc_groups.csv
+    default_ok: true
+  manual_registration:
+    folder_name: manual_registration
+    overrides_csv_name: manual_registration_overrides.csv
+    bad_registration_only: true
+    rotation_center: bregma_ref
+    interpolation_order: 1
+    edge_mode: constant
+    edge_cval: 0.0
+    moving_opacity: 0.55
+    save_registered_bmp: true
+    display_percentiles:
+    - 1
+    - 99
+    qc_after_group: true
+    qc_stack_cmap: gray
+    reference_opacity: 1.0
+    reference_visible: true
+    moving_visible: true
+    capture_napari_layer_transform: true
+    read_saved_bmp_in_qc: true
+    save_final_reference_transform: true
+    show_final_reference_transform_in_widget: true
+    restore_napari_layer_transform_in_viewer: false
+    remember_overrides_in_session: true
+    load_saved_bmp_in_viewer: true
+    bake_saved_override_into_viewer: true
+    reset_layer_transform_after_save: true
+step4:
+  folder_name: step4_raw_and_signals
+  raw_zarr_folder: raw_zarr
+  processed_signals_folder: processed_signals
+  qc_folder: qc_previews
+  traces_folder: roi_traces
+  run_raw_build: true
+  run_signal_processing: true
+  overwrite_raw: false
+  overwrite_processed: true
+  processing_log_name: processing_log.csv
+  execution:
+    mode: two_phase_batch
+    stop_after_raw_build: false
+  notebook:
+    preview_frame_index: 10
+    preview_stem: null
+    preview_group: null
+    show_static_previews: true
+    save_static_previews: false
+    napari_enabled: false
+  review:
+    include_bad: true
+  debug:
+    filters: null
+    selected_stems: null
+    selected_groups: null
+    save_debug_intermediates: false
+  visualization:
+    font_scale: 3.0  # Applies to QC maps and trace labels; does not affect stored signals.
+    frame_cmap: jet
+    background: white
+    percentile_range:
+    - 2
+    - 99
+    show_colorbar: true
+    max_frame_panels: 3
+    dpi: 150
+    traces:
+      layout: by_variant  # Separate Hb raw, gsub, vreg with independent y axes.
+      figsize:
+      - 24
+      - 20
+      x_label: Time (s)
+      y_hb: Δ[Hb] (µM)
+      y_fluo: ΔF/F₀ fluorescence (%)
+      hb_axis_color: red
+      fluo_axis_color: green
+      dpi: 200
+      colors:
+        dcHbO: crimson
+        dcHbO_gsub: red
+        dcHbO_vreg: darkorange
+        dcHHb: royalblue
+        dcHHb_gsub: blue
+        dcHHb_vreg: deepskyblue
+        dcHbT: mediumvioletred
+        dcHbT_gsub: magenta
+        dcHbT_vreg: purple
+      x_lim: null
+      hb_y_lim: null
+      fluo_y_lim: null
+      x_tick_step: null
+      hb_tick_step: null
+      fluo_tick_step: null
+  process_debug:
+    enabled: true
+    show_progress: true
+    save_step_report: false
+    print_dataset_summary: false
+signal_processing:
+  # Every original BMP exposure (505 and 656) must be within these limits.
+  # One invalid exposure invalidates this spatial pixel for the full stem.
+  raw_valid:
+    min_intensity: 15
+    max_intensity: 245
+  input:
+    raw_zarr_key: raw_record
+    raw_variant: unaligned
+    motion_corrected_processed_suffix: motion_corrected
+  masks:
+    source: canonical_by_stem
+    root: project.directory_to_save_main_analysis/out/step2_masks/masks/<stem>
+    auto_files:
+      brain: brain_auto.npy
+      bad: bad_auto.npy
+      ring: ring_auto.npy
+      bregma: bregma_auto.npy
+      vessels: vessels_auto.npy
+    manual_files:
+      brain: brain_manual.npy
+      bregma: bregma_manual.npy
+    manual_precedence: true
+    resize_to_raw_if_needed: true
+  roi:
+    signal_roi: brain_signal
+    background_roi: background
+    min_signal_pixels: 100
+    min_background_pixels: 50
+  drift_correction:
+    enabled: true
+    method: background_division
+    background_stat: mean
+    per_wavelength: true
+    epsilon: 1.0e-06
+    save_background_traces: true
+  baseline:
+    method: mean_all
+    frames: null
+    epsilon: 1.0e-06
+  hemoglobin:
+    enabled: true
+    reflectance_wavelengths:
+    - 505
+    - 656
+    coeff_abs_path: H:\Ext_hb_coeff.csv
+    pathlength_path: H:\Est_pathlenght.csv
+    output_names:
+      HbO: dcHbO
+      HHb: dcHHb
+      HbT: dcHbT
+    save:
+      HbO: false
+      HHb: false
+      HbT: false
+    scale_to_uM: true
+    output_units: µM
+  fluorescence:
+    enabled: false
+    channel: 470
+    output_units: percent
+    save_uncorrected: true
+    uncorrected_name: fluo_dff_percent
+    correction:
+      enabled: true
+      method: pixelwise_hemo_regression
+      regressors:
+      - dcHbO
+      - dcHHb
+      include_intercept: true
+      subtract_intercept: false
+      corrected_name: fluo_hemo_regressed_percent
+      save_corrected: true
+      save_betas: true
+      beta_prefix: fluo_regression_beta
+      save_r2: true
+      r2_name: fluo_regression_r2
+    blb_correction:
+      enabled: false
+      excitation_wavelength: 470
+      emission_wavelength: 514
+      Xest_ex: 0.56
+      Xest_em: 0.57
+  global_signal:
+    variants:
+    - name: brainvessels_mean_subtract
+      enabled: true
+      method: subtract_mean
+      roi: brainvessels_signal
+      suffix: gsub
+      apply_to:
+      - dcHbO
+      - dcHHb
+      - dcHbT
+      save_trace: true
+      min_pixels: 100
+    - name: vessel_regression
+      enabled: true
+      method: roi_mean_regression
+      roi: vessels_signal
+      suffix: vreg
+      apply_to:
+      - dcHbO
+      - dcHHb
+      - dcHbT
+      include_intercept: true
+      subtract_intercept: false
+      save_trace: true
+      save_beta_map: true
+      save_r2_map: true
+      min_pixels: 20
+      apply_to_fluorescence_correction: false
+    default_variants:
+    - vessel_regression
+    rules:
+    - match:
+        exp_day: Day8
+        state: Awake
+        protocol: Stim
+      variants:
+      - brainvessels_mean_subtract
+  smoothing:
+    enabled: false
+    sigma_yx: 1
+    sigma_time: 1
+    apply_to:
+    - dcHbO_gsub
+    - dcHHb_gsub
+    - dcHbT_gsub
+    - dcHbO_vreg
+    - dcHHb_vreg
+    - dcHbT_vreg
+    - dcHbO
+    - dcHHb
+    - dcHbT
+    save_unsmoothed: false
+    save_smoothed_as_main: false
+    suffix: smooth
+  output:
+    save_as_xarray_dataset: true
+    napari_friendly_arrays: true
+    chunks:
+    - 256
+    - 64
+    - 64
+    regression_chunks:
+    - -1
+    - 32
+    - 32
+    compressor_name: zstd
+    compressor_level: 3
+    zarr_format: 2
+    store_dtype: float32
+    save_signals:
+    - dcHbO_gsub
+    - dcHHb_gsub
+    - dcHbT_gsub
+    - dcHbO_vreg
+    - dcHHb_vreg
+    - dcHbT_vreg
+    - dcHbO
+    - dcHHb
+    - dcHbT
+    save_qc_traces_csv: true
+    save_background_traces_csv: true
+    save_static_qc_png: false
+  preprocessing_order: drift_then_normalize
+visualization:
+  napari:
+    default_signals:
+    - dcHbO_gsub
+    - dcHHb_gsub
+    - dcHbT_gsub
+    - dcHbO_vreg
+    - dcHHb_vreg
+    - dcHbT_vreg
+    use_dask_from_zarr: true
+path_resolving:
+  from_root: null
+  to_root: null
+  from_drive: 'F:'
+  to_drive: 'H:'
+analysis_selection:
+  exp_days:
+  - Before-PT
+  - Day-PT
+  - 1-5h-PT
+  - 1d-PT
+  - 3d-PT
+  include_mice: null
+  require_group_assignment: false
+  filters: {}  # no global Awake-only selection; state is chosen inside each mask_set
+  experimental_groups:
+    Control:
+    - m8
+    - m12
+    - m14
+    - m18
+    - m24
+    - m31
+    Awake_PT:
+    - m15
+    - m19
+    - m21
+    - m23
+    - m26
+    Iso_PT:
+    - m10
+    - m13
+    - m16
+    - m17
+    - m20
+    - m27
+    - m30
+analysis_group:
+  group_by:
+  - mouse_id
+  reference:
+    match:
+      exp_day: Day8
+      state: Awake
+      protocol: Stim
+    variant_keys:
+    - protocol
+variant_keys:
+  protocol:
+    enabled: true
+    separators:
+    - ''
+    - '-'
+    - _
+    keep: highest_number
+# Scientific exclusions for downstream analyses (starting with REST Finalizer).
+# These are NOT Step1/Step2 technical excluded_stems and NEVER delete manual QC.
+# Rules AND across fields; list values within a field are OR.
+# Protocol rules use the EXISTING top-level variant_keys.protocol parsing (Step2).
+# A protocol: Rest-state rule includes selected Rest-state/-1/_2 variants;
+# use stem for a single exact selected recording.
+# UNASSIGNED (not listed in experimental_groups) is NOT an exclusion.
+analysis_exclusions:
+  enabled: true
+  fail_on_unmatched_rules: true  # prevent unnoticed typos/wrong day/protocol
+  rules:
+  - id: EX01
+    match:
+      mouse_id: [m29]
+    reason: "Invalid"
+  - id: EX02
+    match:
+      mouse_id: [m32]
+      exp_day: [1-5h-PT, 1d-PT, 3d-PT]
+    reason: "Invalid"
+  - id: EX03
+    match:
+      mouse_id: [m10]
+      exp_day: [Day-PT]
+    reason: "Invalid"
+  - id: EX04
+    match:
+      mouse_id: [m18]
+      exp_day: [3d-PT]
+    reason: "Invalid"
+  # Replace [] with a list of ACTUAL experimenter-approved exclusions.
+  # Examples below are INACTIVE placeholders; do not uncomment without reason.
+  # rules:
+  #   - id: EX01
+  #     match:
+  #       mouse_id: m17
+  #       exp_day: Before-PT
+  #     reason: "Specify experimentally justified reason"
+  #   - id: EX02
+  #     match:
+  #       mouse_id: m17
+  #       exp_day: Before-PT
+  #       protocol: Rest-state
+  #     reason: "Specify experimentally justified reason"
+  #   - id: EX03
+  #     match:
+  #       mouse_id: [m16, m18]
+  #       exp_day: Day-PT
+  #       state: Awake
+  #     reason: "Specify experimentally justified reason"
+  #   - id: EX04
+  #     match:
+  #       stem: mXX_1d-PT_Awake_Rest-state
+  #     reason: "Specify experimentally justified reason"
+
+step5:
+  folder_name: step5_response_detection
+  response_masks_drawn_folder: response_masks_drawn
+  response_tables_folder: response_tables
+  response_plots_folder: response_plots
+  response_previews_folder: response_previews
+  roi_log_name: response_roi_log.csv
+  overwrite_roi: true
+  input:
+    hemoglobin_signals:
+    - dcHbT_gsub
+    - dcHbO_gsub
+    - dcHHb_gsub
+  napari:
+    image_layer_name: Avg hbt Stimulus
+    roi_layer_name: ROI
+    brain_mask_layer_name: brainvessels_signal_mask
+    existing_roi_layer_name: existing_response_roi
+    colormap: turbo
+    contrast_limits:
+    - 0
+    - 1
+    title_size: 28
+    show_brain_mask: true
+    show_existing_roi: true
+    display_smoothing_sigma_px: 1.0
+  stimulus:
+    stim_count: 4
+    stim_start_frame: 6000
+    stim_step: 1500
+    baseline_frames: 20
+    preview_window_frames:
+    - 0
+    - 100
+    trial_window_frames:
+    - -20
+    - 1480
+    pulse_count: 4
+    pulse_frequency_hz: 1.0
+    pulse_duration_sec: 0.3
+  plot:
+    enabled: true
+    error_type: sem
+    label_position: center
+    dpi: 200
+    save_formats:
+    - png
+    figsize:
+    - 10
+    - 5
+    hb_y_label: Δ[Hb] (µM)
+    x_label: Time from trial window start (s)
+    line_width: 1.4
+    error_alpha: 0.1
+    colors:
+      dcHbT_gsub: magenta
+      dcHbO_gsub: red
+      dcHHb_gsub: blue
+      stimulus: gray
+      zero_line: black
+    labels:
+      dcHbT_gsub: HbT
+      dcHbO_gsub: HbO
+      dcHHb_gsub: HHb
+    stimulus_boxes:
+      enabled: true
+      alpha: 0.2
+      label: Stimulus
+      label_y_fraction: 0.95
+    signal_annotations:
+      enabled: true
+      use_arrows: true
+      use_bboxes: true
+      fontsize: 13
+      bbox_facecolor: white
+      x_offsets_sec:
+        dcHbT_gsub: 2
+        dcHbO_gsub: -4
+        dcHHb_gsub: 5
+      y_fractions:
+        dcHbT_gsub: 0.65
+        dcHbO_gsub: 0.45
+        dcHHb_gsub: 0.25
+    x_lim: null
+    hb_y_lim: null
+  output:
+    save_roi_npy: true
+    save_roi_bmp: false
+    save_roi_png: false
+    save_preview_png: true
+    save_traces_csv: true
+    save_stim_trials_csv: true
+    save_summary_json: true
+  debug:
+    filters: null
+    selected_stems: null
+    selected_groups: null
+step6:
+  folder_name: step6_atlas_transform
+  strict: false
+  reference:
+    policy: step3_ref_stem
+    assumption: ref_stem_is_anatomical_reference_response_anchor_can_be_registered_same_group_or_population_template
+    require_step3_annotation: true
+    require_response_mask_on_ref_stem: false
+    response_anchor_policy: ref_then_registered_same_group_then_population
+    use_nonref_response_masks_for_fit: true
+  response_anchor:
+    policy: ref_then_registered_same_group_then_population
+    allow_nonreference_response: true
+    fallback_to_population_template: true
+    side_detection: auto_from_ap_axis
+    require_registration_qc_ok: false
+    registration_qc_ok_values:
+    - ok
+    - good
+    - true
+    - '1'
+    - true
+    - y
+    - да
+    source_weight_multiplier:
+      ref_stem_response_roi: 1.0
+      same_group_registered_response_roi: 1.0
+      population_ref_stem_response_template: 0.8
+  input:
+    target_space: step3_reference_rotated_fullres
+    response_roi_source: step5_npy
+    response_roi_filename_template: '{stem}_response_roi.npy'
+    use_step2_registration_for_response_masks: true
+    resize_response_roi_to_reference: true
+    processed_zarr_required_for_stem_labelmaps: false
+  geometry:
+    pixel_size_um: 22.0
+    ap_positive_direction: caudal
+    rostral_ap_sign: negative
+    rostral_landmark_columns:
+    - - rostral_x
+      - rostral_y
+    - - frontal_vessel_cross_x
+      - frontal_vessel_cross_y
+    ml_to_image_sign: 1.0
+  side_detection:
+    method: response_mask_relative_to_ap_axis
+    ml_positive_label: left
+    ambiguous_min_abs_ml_px: 20.0
+    min_side_fraction: 0.65
+  atlas:
+    name: allen_mouse_25um
+    brainglobe_dir: null
+    axis_ap: 0
+    axis_dv: 1
+    axis_ml: 2
+    ml_sign: -1.0
+    ap_sign: 1.0
+    dv_sign: 1.0
+    dorsal_from_low_dv: true
+    landmark_names:
+    - bregma
+    - rostral
+    landmarks_csv_name: allen_landmarks_bregma_rostral.csv
+    sshl_structure_queries:
+    - SSp-ll
+    - Primary somatosensory area, lower limb
+    left_ml_relation_to_bregma: negative
+    include_descendants: true
+  fit:
+    pitch_bounds_deg:
+    - -10.0
+    - 20.0
+    scale0: 1.0
+    allow_scale_after_pitch: true
+    scale_bounds:
+    - 0.8
+    - 1.4
+    scale_prior: 1.0
+    scale_prior_sigma: 0.2
+    pitch_local_window_deg: 12.0
+    pitch_anchor_sigma_deg: 5.0
+    landmark_sigma_um: 60.0
+    response_sigma_um: 130.0
+    allow_fit_without_response_mask: true
+    weights:
+      rostral_ap: 6.0
+      response_ap: 1.0
+      response_ml: 0.8
+      scale_prior: 1.0
+  projection:
+    raster_stride: 1
+    fill_label_max_dist_px: 20.0
+    save_contours_npz: true
+    save_reference_labelmap: true
+    save_stem_labelmaps: true
+    save_overlay_png: true
+    overlay_alpha: 0.35
+    overlay_dpi: 180
+    show_response_match_points: true
+    response_match_points_max: 250
+    response_match_points_alpha: 0.45
+  missing_response_masks:
+    enabled: true
+    template_source: ref_stem_only
+    min_masks_per_side: 2
+    template_bin_px: 4
+    template_radius_px: 250
+    probability_threshold: 0.5
+    save_imputed_masks: true
+    imputed_fit_weight_multiplier: 0.8
+    # Without a real same-group response ROI, the hemisphere stays unknown.
+    # A side-specific population template is NOT substituted by default.
+    # Use 'fixed' and a verified 'left'/'right' only if separately justified.
+    side_policy: missing
+    fixed_side: null
+  full_atlas_overlay:
+    enabled: false
+    show_cortex: true
+    show_cerebellum: true
+    show_olfactory_bulbs: true
+    show_target: true
+    target_side_mode: detected
+    contour_min_points: 25
+    contour_min_area_flat_px: 8.0
+    contour_smooth_window: 7
+    boundary_linewidth: 0.8
+    target_linewidth: 1.6
+    fill_alpha: 0.16
+    target_fill_alpha: 0.28
+    margin_px: 80
+    dpi: 220
+    show_image_landmarks: true
+    show_projected_atlas_landmarks: true
+    show_response_mask: true
+  coverage:
+    enabled: true
+    min_region_coverage_fraction: 0.5
+    warn_region_coverage_fraction: 0.1
+    min_region_area_px: 10
+  batch:
+    filters: null
+    selected_groups: null
+    selected_stems: null
+    include_bad: true  # Step6 is anatomical; Step2 automatic is_bad is not an approved scientific exclusion
+    skip_existing_transforms: false
+    continue_on_error: true
+  output:
+    response_refspace_folder: response_masks_refspace
+    response_template_folder: response_mask_templates
+    atlas_landmarks_folder: atlas_landmarks
+    transforms_folder: transforms
+    labelmaps_refspace_folder: atlas_labelmaps_refspace
+    labelmaps_by_stem_folder: atlas_labelmaps_by_stem
+    overlays_folder: overlays
+    tables_folder: tables
+    logs_folder: logs
+    step6_index_name: step6_index.csv
+    transform_log_name: step6_transform_log.csv
+    side_detection_log_name: step6_side_detection_log.csv
+    error_log_name: step6_errors.csv
+step6b_fc_geometry:
+  folder_name: step6b_fc_geometry
+  include_bad_rows: true  # retained for compatibility; no automatic is_bad gate
+  rest_min_duration_sec: 60.0
+  rest_segments_final_csv: null  # defaults to out/behavior_review/rest_segments_final.csv
+  rest_shadow_masks_by_stem_csv: null  # includes masks even when there are zero USE windows
+  use_manual_registration_overrides: true
+  strict_missing_declared_masks: true
+  continue_on_error: false
+  selection:
+    unassigned_label: UNASSIGNED
+    fail_on_required_selection_problem: false
+  broad_atlas:
+    parent_acronym: Isocortex
+    save_original_to_broad_mapping: true
+    roi_refinements:
+      MO:
+        mode: split
+        children:
+        - MOp
+        - MOs
+        unmatched_policy: error
+  technical_sources:
+    bad_auto: true
+    bregma: true
+    rescue_shadow: true
+    step4_shadow_union_manual: false
+  technical_geometry:
+    common_brain_edge_erosion:
+      enabled: true
+      radius_px: 20
+  # Hemorrhage uses ONE canonical source, unconditionally:
+  # out/step2_masks/masks/<stem>/hemorrhage_manual.npy
+  # No OR with damage_assessment and no legacy pathology_sources switches.
+  hemisphere:
+    lesion_side: right
+    per_mouse_lesion_side: {}
+    ml_positive_label: null
+    midline_exclusion_px: 12
+    homotopic_map_hemisphere: lesion
+    global_analysis_hemisphere: healthy
+  side_consistency_qc:
+    enabled: true
+    fail_on_swap: true
+    min_expected_minus_opposite: 0.2
+  roi_geometry:
+    boundary_exclusion_canonical_px: 2
+    save_refspace_equivalent_buffer_qc: true
+    fill_internal_zero_holes_before_buffer: true
+    internal_hole_background_connectivity: 4
+    max_internal_zero_hole_area_px: null
+    max_internal_nonzero_hole_area_px: 5
+  roi_thresholds:
+    min_technical_coverage: 0.4
+    min_homotopic_technical_coverage: 0.4
+    min_global_technical_coverage: 0.4
+    use_absolute_coverage_gate: false
+    cohort_relative:
+      enabled: true
+      reference_stat: median
+      min_relative_fraction: 0.6
+      max_relative_fraction: 1.25
+      upper_bound_mode: flag
+    min_stem_usable_coverage: 0.5
+    min_pixels: 500
+    min_mouse_fraction_per_group: 0.65
+    require_all_groups: true
+  qc:
+    organize_png_by_mask_set: true
+    save_pathology_png_only_if_nonzero: true
+    save_shadow_png_only_if_nonzero: true
+    save_canonical_mask_pngs: true
+    save_cohort_frequency_maps: true
+    save_reference_atlas_repair_png: true
+  primary_roi_mask_set: stroke_longitudinal
+  mask_sets:
+    stroke_longitudinal:
+      enabled: true
+      required: true
+      whole_hemisphere_only: false
+      require_assigned_experimental_group: true
+      slot_policy: per_stem
+      min_stems: 2
+      expected_comparison_groups: [Control, Awake_PT, Iso_PT]
+      spatial_masks:
+      - homotopic
+      - global_healthy
+      global_analysis_hemisphere: healthy
+      thresholds:
+        min_pixels: 400
+        min_stem_usable_coverage: 0.4  # REVIEW: inherited A threshold; now applies to B; do not use for final results until agreed
+        cohort_relative:
+          min_relative_fraction: 0.45
+      slots:
+        baseline:
+          match:
+            exp_day: Before-PT
+            state: Awake
+            protocol:
+              regex: (?i)rest[-_ ]?state
+        post_1_5h:
+          match:
+            exp_day: 1-5h-PT
+            state: Awake
+            protocol:
+              regex: (?i)rest[-_ ]?state
+        day1:
+          match:
+            exp_day: 1d-PT
+            state: Awake
+            protocol:
+              regex: (?i)rest[-_ ]?state
+        day3:
+          match:
+            exp_day: 3d-PT
+            state: Awake
+            protocol:
+              regex: (?i)rest[-_ ]?state
+      per_mouse_slot_overrides:
+        m12:
+          baseline:
+            match:
+              exp_day: Day-PT
+              state: Awake
+              protocol:
+                regex: (?i)rest[-_ ]?state
+    prestroke_stability:
+      enabled: true
+      required: false
+      whole_hemisphere_only: true
+      require_assigned_experimental_group: true  # provisional: previous experimental-group cohort
+      slot_policy: all_slots
+      spatial_masks:
+      - homotopic
+      - global_healthy
+      - bilateral
+      global_analysis_hemisphere: both
+      thresholds:
+        min_pixels: 100
+        min_stem_usable_coverage: 0.4  # REVIEW: inherited A threshold; now applies to B
+        cohort_relative:
+          min_relative_fraction: 0.45
+          max_relative_fraction: 1.2
+          upper_bound_mode: flag
+      slots:
+        before:
+          match:
+            exp_day: Before-PT
+            state: Awake
+            protocol:
+              regex: (?i)rest[-_ ]?state
+        daypt_awake:
+          match:
+            exp_day: Day-PT
+            state: Awake
+            protocol:
+              regex: (?i)rest[-_ ]?state
+    daypt_anesthesia:
+      enabled: true
+      required: false
+      whole_hemisphere_only: true
+      require_assigned_experimental_group: false  # UNASSIGNED permitted
+      slot_policy: one_of  # Awake OR Iso per mouse, never an intersection
+      expected_comparison_groups: [Awake, Iso]
+      spatial_masks:
+      - homotopic
+      - global_healthy
+      - bilateral
+      global_analysis_hemisphere: both
+      thresholds:
+        min_pixels: 100
+        min_stem_usable_coverage: 0.4  # REVIEW: inherited A threshold; now applies to B
+        cohort_relative:
+          min_relative_fraction: 0.45
+          max_relative_fraction: 1.2
+          upper_bound_mode: flag
+      slots:
+        daypt_awake:
+          match:
+            exp_day: Day-PT
+            state: Awake
+            protocol:
+              regex: (?i)rest[-_ ]?state
+        daypt_iso:
+          match:
+            exp_day: Day-PT
+            state: Iso
+            protocol:
+              regex: (?i)rest[-_ ]?state
+functional_connectivity:
+  folder_name: step7_functional_connectivity
+  mask_sets:
+  - stroke_longitudinal
+  - prestroke_stability
+  - daypt_anesthesia
+  rest_segments_csv:
+  build_rest_segments_if_missing: false
+  expected_segment_sec: 60.0
+  # Consecutive full 60-second windows for Iso (not REST Finalizer windows).
+  anesthesia_windows:
+    state: Iso
+    mode: consecutive_nonoverlapping
+    duration_sec: 60.0
+    start_sec: 0.0
+    incomplete_tail: discard
+    require_behavior_rest_qc: false
+  temporal:
+    detrend_enabled: true
+    detrend_type: linear
+    filter_enabled: true
+    low_hz: 0.08
+    high_hz: 0.4
+    order: 4
+    synthetic_odd_pad_sec: 20.0
+    variance_epsilon: 1.0e-12
+    filter_type: bandpass
+    trim_left_sec: 2.0
+    trim_right_sec: 2.0
+  spatial:
+    scale: 0.5
+    signal_resize: mask_aware_area
+    min_valid_fraction: 0.5
+  homotopic:
+    require_same_analysis_roi: true
+    mutual_nearest_partner: true
+    fisher_clip: 0.999999
+  global:
+    both_hemispheres_mode: separate_hemispheres
+    correlation_block_size: 512
+    fisher_clip: 0.999999
+    min_pool_pixels: 2
+  final_grid_qc:
+    min_roi_pixels: 5
+    min_homotopic_pairs: 5
+    min_final_grid_coverage_fraction: 0.25
+  output:
+    overwrite: false
+    save_geometry: true
+    save_segment_maps: true
+    save_stem_maps: true
+    save_qc_png: true
+    save_roi_traces_one_mouse: true
+    save_roi_traces_batch: false
+  qc:
+    map_percentiles:
+    - 2.0
+    - 98.0
+    trace_rois:
+  batch:
+    continue_on_error: true
+  rest_variant: with_rest
+  variants:
+    selected:
+    - hbt_bandpass
+    - hbt_lowpass
+    - hbt_vreg_bandpass
+    - hbt_vreg_lowpass
+    definitions:
+      hbt_bandpass:
+        signal: dcHbT
+        filter_type: bandpass
+      hbt_lowpass:
+        signal: dcHbT
+        filter_type: lowpass
+      hbt_vreg_bandpass:
+        signal: dcHbT_vreg
+        filter_type: bandpass
+      hbt_vreg_lowpass:
+        signal: dcHbT_vreg
+        filter_type: lowpass
+  active_variant_id: hbt_bandpass
+  whole_cortex_summary:
+    enabled: true
+    save_stem_table: true
+    save_mouse_table: true
+    homotopic:
+      enabled: true
+    global:
+      enabled: true
+      save_sides_when_both: true
+      save_bilateral_when_both: true
+    qc:
+      min_valid_homotopic_pairs: 1
+      min_valid_gbc_pixels: 1
+damage_assessment:
+  folder_name: damage_assessment
+  annotator: user
+
+  input:
+    baseline:
+      policy: match
+      match:
+        exp_day: Day-PT
+        protocol: Rest-state
+
+    poststroke:
+      match:
+        exp_day:
+          - 1-5h-PT
+          - 1d-PT
+          - 3d-PT
+          - PT
+        protocol: Rest-state
+
+    use_manual_registration_overrides: true
+    resize_brain_mask_if_needed: true
+
+  output:
+    masks_folder: masks
+    diff_maps_folder: diff_maps
+    previews_folder: previews
+    tables_folder: tables
+    index_name: damage_index.csv
+    review_log_name: damage_review.csv
+    error_log_name: damage_errors.csv
+
+  batch:
+    filters: null
+    include_bad: false
+    continue_on_error: true
+
+  manual_gui:
+    enabled: true
+    helpers_folder: manual_gui_helpers
+    tables_folder: tables
+    gui_index_name: damage_gui_index.csv
+    review_log_name: damage_manual_review.csv
+    error_log_name: damage_manual_gui_errors.csv
+
+    selection:
+      require_unique_baseline: true
+
+    raw_layers:
+      wavelengths:
+        - '505'
+        - '656'
+      normalization: mean_in_brain
+
+      mean_images:
+        enabled: true
+        frame_stride: 1
+        max_frames_per_wavelength: null
+        cache_folder: raw_mean_cache
+        overwrite_cache: false
+
+    # Выбор фильмов 505, 656 или обоих в Napari
+    raw_movie:
+      enabled: true
+      wavelengths:
+        - '505'
+        - '656'
+      colormap: gray
+      load_mode: on_demand
+
+    # Покадровый HbT из processed Zarr для всех дней
+    hbt_movie:
+      enabled: true
+      exp_days: []
+      signal: dcHbT
+      colormap: turbo
+
+    # RUN = все интервалы вне размеченного REST
+    run_sd:
+      enabled: true
+      annotations_path: null
+      signal: dcHbT
+      allow_signal_fallback: true
+      fallback_signals:
+        - dcHbT_gsub
+      interval_source: complement_of_rest
+      min_run_duration_sec: 2.0
+      save_segment_maps: true
+      aggregation: sample_weighted_segment_sd
+
+    homotopic:
+      # Загрузка готовых корреляционных карт Step 7
+      authoritative:
+        enabled: true
+        folder_name: step7_functional_connectivity
+        rest_variant: with_rest
+        variant_id: hbt_lowpass
+        mask_set: stroke_longitudinal
+        subset_output_key: null
+        display_units: pearson_r
+        save_resized_z: true
+        show_gbc: false
+
+      # Повторный расчёт корреляций отключён
+      full_preview:
+        enabled: false
+
+    # Геморрагия не используется
+    hemorrhage:
+      enabled: false
+
+    display:
+      percentiles:
+        - 2.0
+        - 98.0
+      percentiles_use_brain_mask: true
+      default_visible_layer: raw_505
+      layer_opacity: 1.0
+
+      colormaps:
+        raw: gray
+        diff_signed: coolwarm
+        run_sd: turbo
+        homotopic: turbo
+
+    review:
+      preload_existing_lesion: true
+      save_empty_mask: false
+      lesion_edge_color: yellow
+      lesion_face_color:
+        - 1.0
+        - 1.0
+        - 0.0
+        - 0.12
+      lesion_edge_width: 2.0
+      skip_reviewed: false
+
+    batch:
+      continue_on_error: true
+hemorrhage_reference_review:
+  folder_name: hemorrhage_stem_review
+  output_csv: hemorrhage_stem_review.csv
+  wavelength: '505'
+  postpt_exp_days:
+  - 1-5h-PT
+  - 1d-PT
+  - 3d-PT
+  baseline_exp_day_preference:
+  - Day-PT
+  - Before-PT
+  baseline_match_same_state: true
+  baseline_match_same_protocol: true
+  baseline_allow_relaxed_match: true
+  display:
+    percentiles:
+    - 1
+    - 99
+    shared_contrast: true
+    window_width: 1450
+    window_height: 850
+  batch:
+    skip_reviewed: true
+    filters: {}
+statistics:
+  spreading_depolarization:
+    groups:
+      Contr:
+      - m8
+      - m12
+      - m14
+      - m24
+      - m31
+      Awake:
+      - m15
+      - m19
+      - m21
+      - m23
+      - m26
+      Iso:
+      - m10
+      - m13
+      - m16
+      - m17
+      - m20
+      - m27
+      - m30
+
+step_spontaneous_hemodynamics:
+  folder_name: step_spontaneous_hemodynamics
+  rest_variant: with_rest       # with_rest | without_rest; selects matching Step6b products
+  mask_set: daypt_anesthesia
+  signal: dcHbT
+  rois: [MOp, MOs, SS, RSP]
+
+  segments:
+    primary_sec: 60.0
+    duration_tolerance_sec: 0.75
+    rest_segments_final_csv: null  # default: <out_root>/behavior_review/rest_segments_final.csv
+    # with_rest: Awake uses ACCEPTED final REST only; Iso uses consecutive full 60-s windows.
+    # without_rest: Awake and Iso both use consecutive full 60-s windows.
+
+  spatial:
+    scale: 0.50
+    signal_resize: mask_aware_area
+    min_valid_fraction: 0.50
+  preprocessing:
+    detrend_enabled: true
+    detrend_type: linear
+    variance_epsilon: 1.0e-12
+
+  spectral:
+    method: periodogram
+    window: hann
+    reference_band_hz: [0.05, 0.50]
+    max_saved_frequency_hz: 0.50
+    min_roi_pixels_fc: 5
+    pixel_chunk_size: 2048  # pixelwise Hann PSD, then arithmetic mean for ROI / whole brain
+    bands:
+      0p05_0p10: [0.05, 0.10]
+      0p11_0p20: [0.11, 0.20]
+      0p21_0p40: [0.21, 0.40]  # NEW
+      0p08_0p40: [0.08, 0.40]
+
+  relative_power_maps:
+    enabled: true
+    bands:
+      0p05_0p10: [0.05, 0.10]
+      0p11_0p20: [0.11, 0.20]
+      0p21_0p40: [0.21, 0.40]  # NEW
+      0p08_0p40: [0.08, 0.40]
+    reference_band_hz: [0.05, 0.50]
+    pixel_chunk_size: 2048
+    min_group_n_per_pixel: 2
+    save_difference_map: true     # Iso-minus-Awake contrast
+
+  correlations:
+    enabled: true
+    filter_type: lowpass         # bandpass | lowpass
+    band_hz: [0.08, 0.40]        # used ONLY for bandpass
+    lowpass_high_hz: 0.40        # used ONLY for lowpass; no high-pass component
+    order: 4
+    synthetic_odd_pad_sec: 30.0 # SciPy odd extension while filtering full 60-s fragment
+    trim_left_sec: 0.0          # seconds to discard AFTER filtering, for correlations only
+    trim_right_sec: 0.0         # can be different from left; PSD/maps still use full 60 s
+    # left, right, bilateral_trace_mean; both sides use Step6b per-stem bilateral canonical homotopic pair masks.
+    # Pearson r -> Fisher z -> mouse-first.
+
+  output:
+    overwrite: false
+    save_segment_spectra_long: true
+  batch:
+    continue_on_error: true

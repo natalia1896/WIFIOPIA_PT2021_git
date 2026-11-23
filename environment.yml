@@ -1,0 +1,46 @@
+# Portable Conda specification adapted from the author's recent environment.
+# Version ranges are not an OS-specific lockfile and have not been validated end to end.
+name: md-analysis
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.11
+  - pip
+
+  # Scientific computing: ranges follow the supplied environment_mac.yml.
+  - "numpy>=2.4,<2.5"
+  - "pandas>=3.0,<3.1"
+  - "scipy>=1.17,<1.18"
+  - "scikit-image>=0.26,<0.27"
+  - "matplotlib>=3.11,<3.12"
+  - "imageio>=2.37,<3"
+  - "h5py>=3.16,<3.17"
+  - "opencv>=4.8,<6"
+  - "xarray>=2026.4,<2027"
+  - "dask>=2025.5,<2026"
+  - "numcodecs>=0.16,<0.17"
+  # Step4 requests the Zarr *storage format* 2 with this Zarr 3 library.
+  - "zarr>=3.1,<3.2"
+  - "napari>=0.7,<0.8"
+
+  # GUI, notebooks and file I/O.
+  - pyqt6
+  - qtpy
+  - jupyterlab
+  - notebook
+  - ipykernel
+  - ipython
+  - ipywidgets
+  - jupyterlab_widgets
+  - pyyaml
+  - tqdm
+  - pillow
+  - openpyxl
+  - pyarrow
+  - ffmpeg
+
+  # Direct imports in src/ not covered by the Conda dependencies above.
+  - pip:
+      - imutils
+      - brainglobe-atlasapi

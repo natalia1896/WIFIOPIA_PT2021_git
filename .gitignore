@@ -1,0 +1,45 @@
+# Jupyter temporary files (keep project notebooks)
+.ipynb_checkpoints/
+/Untitled.ipynb
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local settings and secrets
+.env
+.env.*
+/config.yaml
+/config_*.yaml
+!/config_15102026.yaml
+
+# Generated CSV outputs are not published.
+*.csv
+# Two original hemoglobin calibration tables are published at project root.
+!/Ext_hb_coeff.csv
+!/Est_pathlenght.csv
+
+# Raw experimental data and generated arrays
+*.zarr/
+*.bmp
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.tif
+*.tiff
+*.mp4
+*.avi
+
+# Generated analysis folders and temporary files
+out/
+*.log
+*.tmp
+*.bak
+
+# OS-generated files
+.DS_Store
+Thumbs.db
