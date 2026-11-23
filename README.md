@@ -6,7 +6,7 @@ Python and Jupyter workflow for wide-field optical intrinsic signal imaging (OIS
 
 ## Installation
 
-See [INSTALL_ANACONDA.md](INSTALL_ANACONDA.md) for a short Windows/macOS setup guide. Dependencies are listed in [environment.yml](environment.yml); the version ranges are adapted from the author's recent environment and **have not been validated end to end on both platforms**. Install [Ilastik](https://www.ilastik.org/) separately for Step 1–2 segmentation.
+See [INSTALLATION.md](INSTALLATION.md) for a short Windows/macOS setup guide. Dependencies are listed in [environment.yml](environment.yml); the version ranges are adapted from the author's recent environment and **have not been validated end to end on both platforms**. Install [Ilastik](https://www.ilastik.org/) separately for Step 1–2 segmentation.
 
 ## Analysis workflow
 
